@@ -21,7 +21,7 @@ typedef pair<int, int>     ii;
 #define avg(l, r)          l + (r - l) / 2
 #define iter(a)            a.begin(), a.end()
 
-typedef tuple<int, int, int, int> tpl;
+typedef tuple<int, int, int, int, int> tpl;
 
 struct point {
 	int x, y;
@@ -36,42 +36,20 @@ struct point {
 	}
 };
 
-struct line {
-	int a, b, c;
-	int st, end;
-	line(point p, point q) {
-		point del = p - q;
-		if (del.x) {
-			a = 0;
-			b = 1;
-			c = -p.y;
-			st = p.x;
-			end = q.x;
-		}
-		else {
-			a = 1;
-			b = 0;
-			c = -p.x;
-			st = p.y;
-			end = q.y;
-		}
-	}
-};
-
 struct wire {
 	vector<tpl> lines;
 	point last;
 
 	void addLine(string d, int w) {
 		bool h = d[0] == 'R' or d[0] == 'L';
-		int del = stoi(d.substr(1), nullptr, 10);
-		point next = (h ? point(last.x + del, 0) : point(0, last.y + del));
+		int del = stoi(d.substr(1), nullptr, 10) * (d[0] == 'L' or d[0] == 'D' ? -1 : 1);
+		point next = last + (h ? point(del, 0) : point(0, del));
 		if (h) {
-			lines.emplace_back(last.x, -INF, h, w);
-			lines.emplace_back(last.x + del, INF, (int)h, w);
+			lines.emplace_back(min(last.x, next.x), last.y, -INF, h, w);
+			lines.emplace_back(max(last.x, next.x), last.y,  INF, h, w);
 		}
-		else lines.emplace_back(next.x, next.y, h, w);
-		last = last + next;
+		else lines.emplace_back(last.x, min(last.y, next.y), max(last.y, next.y), h, w);
+		last = next;
 	}
 };
 
@@ -84,8 +62,13 @@ void conswire(string s, wire& w, int t) {
 		}
 		else x += c;
 	}
+	w.addLine(x, t);
 };
 
+int dist(point a, point b) {
+	point del = a - b;
+	return abs(del.x) + abs(del.y);
+}
 
 int main() {
 	ios_base::sync_with_stdio(false);cin.tie(NULL);cout.tie(NULL);
@@ -94,34 +77,35 @@ int main() {
 	string s, t;
 	getline(cin, s);
 	getline(cin, t);
-	conswire(s, w1, 1);
-	conswire(t, w2, 2);
+	conswire(s, w1, 0);
+	conswire(t, w2, 1);
 
 	vector<tpl> sl;
 	sl.insert(sl.end(), iter(w1.lines));
 	sl.insert(sl.end(), iter(w2.lines));
 	sort(iter(sl));
 	set<ii> hs;
-	int ans = 
-	for (auto [x, y, h, w] : sl) {
+	int ans = INF;
+	for (auto [x, y1, y2, h, w] : sl) {
 		if (h) {
-			if (y == -INF) hs.emplace(x, w);
+			if (y2 == -INF) hs.emplace(y1, w);
 			else {
-				auto it = hs.find(ii(x, w));
+				auto it = hs.find(ii(y1, w));
 				hs.erase(it);
 			}
 		}
 		else {
-			auto l = lower_bound(iter(hs), ii(x, -1));
-			auto u = upper_bound(iter(hs), ii(y, 10));
+			auto l = lower_bound(iter(hs), ii(y1, -1));
+			auto u = upper_bound(iter(hs), ii(y2, 10));
 			for (auto it = l;it != u;it++) {
 				if (it->second != w) {
-					ans = min(ans, dist(point(0, 0), point(x, it->first)));
+					int dis = abs(x) + abs(it->first);
+					if (dis) ans = min(ans, dis);
 				}
 			}
 		}
-		cout << ans << endl;
 	}
+	cout << ans << endl;
 	return 0;
 }
 
