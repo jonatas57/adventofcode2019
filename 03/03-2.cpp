@@ -21,10 +21,13 @@ typedef pair<int, int>     ii;
 #define avg(l, r)          l + (r - l) / 2
 #define iter(a)            a.begin(), a.end()
 
-struct point {
-	int x, y;
+typedef tuple<int, int, int, int, int, int> tpl;
+typedef tuple<int, int, int> line;
 
-	point(int x = 0, int y = 0) : x(x), y(y) {}
+struct point {
+	int x, y, dist;
+
+	point(int x = 0, int y = 0) : x(x), y(y) , dist(0) {}
 
 	point operator-(point p) {
 		return point(x - p.x, y - p.y);
@@ -32,45 +35,10 @@ struct point {
 	point operator+(point p) {
 		return point(x + p.x, y + p.y);
 	}
-	bool operator<(const point& p) const {
-		return x == p.x ? y < p.y : x < p.x;
-	}
-	bool operator!=(const point& p) const {
-		return x != p.x or y != p.y;
-	}
 };
 
-int dist(point a, point b) {
-	point del = a - b;
-	return abs(del.x) + abs(del.y);
-}
-
-struct graph {
-	int size;
-	map<int, mii> adj[2];
-	map<point, int> conv;
-
-	graph() : size(1) {}
-	void addEdge(point a, point b, int w) {
-		addNode(a, w);
-		addNode(b, w);
-		if (conv[a] == conv[b]) return;
-			adj[w][conv[a]][conv[b]] = dist(a, b);
-	}
-	void addNode(point a, int w) {
-		if (conv[a] or !(a.x | a.y)) return;
-		conv[a] = size++;
-	}
-	void remEdge(point a, point b, int w) {
-		adj[w][conv[a]].erase(conv[b]);
-	}
-} g;
-
-typedef tuple<int, int, int, int, int, int> tpl; // x, y1, y2, hor, wire, id
-typedef tuple<int, int, int> line; // y, wire, id
-
-vector<pair<point, point>> getPoints;
 int id = 0;
+vector<point> getPoint;
 
 struct wire {
 	vector<tpl> lines;
@@ -80,14 +48,14 @@ struct wire {
 		bool h = d[0] == 'R' or d[0] == 'L';
 		int del = stoi(d.substr(1), nullptr, 10) * (d[0] == 'L' or d[0] == 'D' ? -1 : 1);
 		point next = last + (h ? point(del, 0) : point(0, del));
-		getPoints.emplace_back(last, next);
-		g.addEdge(last, next, w);
+		next.dist = last.dist + abs(del);
 		if (h) {
-			lines.emplace_back(min(last.x, next.x), last.y, -INF, h, w, id);
-			lines.emplace_back(max(last.x, next.x), last.y,  INF, h, w, id);
+			lines.emplace_back(min(last.x, next.x), last.y, -INF, h, id, w);
+			lines.emplace_back(max(last.x, next.x), last.y,  INF, h, id, w);
 		}
-		else lines.emplace_back(last.x, min(last.y, next.y), max(last.y, next.y), h, w, id);
+		else lines.emplace_back(last.x, min(last.y, next.y), max(last.y, next.y), h, id, w);
 		id++;
+		getPoint.push_back(last);
 		last = next;
 	}
 };
@@ -104,25 +72,9 @@ void conswire(string s, wire& w, int t) {
 	w.addLine(x, t);
 };
 
-vi dijkstra(int w) {
-	vb visit(g.size, false);
-	vi dist(g.size, INF);
-	queue<int> q;
-	visit[0] = true;
-	dist[0] = 0;
-	q.push(0);
-	while (!q.empty()) {
-		int x = q.front();
-		q.pop();
-		for (auto& [y, v] : g.adj[w][x]) {
-			if (!visit[y]) {
-				visit[y] = true;
-				q.push(y);
-			}
-			dist[y] = min(dist[y], dist[x] + v);
-		}
-	}
-	return dist;
+int dist(point a, point b) {
+	point del = a - b;
+	return abs(del.x) + abs(del.y);
 }
 
 int main() {
@@ -139,50 +91,31 @@ int main() {
 	sl.insert(sl.end(), iter(w1.lines));
 	sl.insert(sl.end(), iter(w2.lines));
 	sort(iter(sl));
-	vector<line> hs;
-	vi crosses;
+	set<line> hs;
 	int ans = INF;
-	for (auto [x, y1, y2, h, w, id] : sl) {
+	for (auto [x, y1, y2, h, id, w] : sl) {
 		if (h) {
-			if (y2 == -INF) hs.emplace_back(y1, w, id);
+			if (y2 == -INF) hs.emplace(y1, w, id);
 			else {
-				int i;
-				for (i = 0;i < hs.size();i++) {
-					if (get<2>(hs[i]) == id) break;
-				}
-				hs.erase(hs.begin() + i);
+				auto it = hs.find(line(y1, w, id));
+				hs.erase(it);
 			}
 		}
 		else {
+			point p = getPoint[id];
 			auto l = lower_bound(iter(hs), line(y1, -1, 0));
 			auto u = upper_bound(iter(hs), line(y2, 10, 0));
-			point p, q, cross;
-			tie(p, q) = getPoints[id];
-			point p2 = p, q2 = q, hp, hq;
 			for (auto it = l;it != u;it++) {
-				int hy, hw, hid;
+				int hy, hid, hw;
 				tie(hy, hw, hid) = *it;
-				tie(hp, hq) = getPoints[hid];
-				if (abs(hid - id) == 1 or (!x and !hy)) continue;
-				cross = {x, hy};
-				(p < q ? g.addEdge(p, cross, w) : g.addEdge(cross, q, w));
-				(p < q ? p = cross : q = cross);
-				g.addEdge(hp, cross, hw);
-				g.addEdge(cross, hq, hw);
-				if (hp != cross and cross != hq) g.remEdge(hp, hq, hw);
-				(hp < hq ? getPoints[hid].first : getPoints[hid].second) = cross;
-				if (w != hw) crosses.push_back(g.conv[cross]);
-			}
-			if (p != p2 or q != q2) {
-				(p < q ? g.addEdge(cross, q, w) : g.addEdge(p, cross, w));
-				g.remEdge(p2, q2, w);
+				point hp = getPoint[hid];
+				if (hw != w) {
+					point cross(x, hy);
+					int dis = p.dist + dist(p, cross) + hp.dist + dist(hp, cross);
+					if (dis) ans = min(ans, dis);
+				}
 			}
 		}
-		sort(iter(hs));
-	}
-	auto d0 = dijkstra(0), d1 = dijkstra(1);
-	each(c, crosses) {
-		ans = min(ans, d0[c] + d1[c]);
 	}
 	cout << ans << endl;
 	return 0;
