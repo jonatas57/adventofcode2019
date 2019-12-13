@@ -26,16 +26,29 @@ class prog {
 	map<ll, ll> extMem;
 	bool useBuffer;
 	int stopAfterOutput, memSize;
-	int buffer[3] = {0, 0, 0}, dels[10] = {0, 4, 4, 2, 2, 3, 3, 4, 4, 2};
-	int ptr, relativeBase, bufferPos, step;
-	bool eop;
+	vi buffer, dels = {0, 4, 4, 2, 2, 3, 3, 4, 4, 2};
+	int ptr, relativeBase, bufferPos, bufferSize, step;
+	bool eop, waitInput, paused;
+	int outputCnt;
 
 	ll access(ll pos) {
 		return pos < memSize ? mem[pos] : extMem[pos];
 	}
 
 	public:
-	prog(char* file, bool ub = false, int sao = 0) : useBuffer(ub), stopAfterOutput(sao), ptr(0), relativeBase(0), bufferPos(0), step(0), eop(false) {
+	prog(char* file, bool ub = false, int sao = 0) : 
+	useBuffer(ub),
+	stopAfterOutput(sao), 
+	buffer(sao + 1, 0), 
+	ptr(0), 
+	relativeBase(0), 
+	bufferPos(0), 
+	bufferSize(sao),
+	step(0), 
+	eop(false),
+	waitInput(true),
+	paused(false),
+	outputCnt(0) {
 		ifstream fin(file);
 		ll x;
 		char c;
@@ -78,13 +91,25 @@ class prog {
 
 	void input(vector<ll>& args) {
 		ll x;
-		if (useBuffer) x = buffer[2];
+		if (useBuffer) {
+			if (waitInput) {
+				paused = true;
+			}
+			else {
+				x = buffer[bufferSize];
+				waitInput = true;
+			}
+		}
 		else cin >> x;
 		set(args[0], x);
 	}
 
 	void output(vector<ll>& args) {
-		if (useBuffer) buffer[bufferPos] = args[0], bufferPos ^= 1;
+		if (useBuffer) {
+			buffer[bufferPos] = args[0];
+			bufferPos++;
+			if (bufferPos == bufferSize) bufferPos = 0;
+		}
 		else cout << args[0] << endl;
 	}
 
@@ -117,8 +142,10 @@ class prog {
 	void call(size_t i, vector<ll>& args);
 
 	void exec() {
-		int op, mode, cnt = 0;
-		for (;access(ptr) != 99 and (!stopAfterOutput or stopAfterOutput != cnt);ptr += step) {
+		paused = false;
+		int op, mode;
+		if (stopAfterOutput == outputCnt) outputCnt = 0;
+		for (;access(ptr) != 99 and (!stopAfterOutput or stopAfterOutput != outputCnt);ptr += step) {
 			tie(op, mode) = parse(mem[ptr]);
 			step = dels[op];
 			vector<ll> args;
@@ -130,7 +157,8 @@ class prog {
 			}
 			if ((op < 4 or op > 6) and op != 9) args[step - 2] = access(ptr + step - 1) + (m == 2 ? relativeBase : 0);
 			call(op, args);
-			if (stopAfterOutput and op == 4) cnt++;
+			if (op == 3 and paused) break;
+			else if (stopAfterOutput and op == 4) outputCnt++;
 		}
 		if (access(ptr) == 99) eop = true; 
 	}
@@ -144,7 +172,33 @@ class prog {
 	}
 
 	bool canRun() {
-		return !eop;
+		return !eop and !paused;
+	}
+
+	bool isPaused() {
+		return paused;
+	}
+
+	bool stopped() {
+		return eop;
+	}
+
+	void unpause() {
+		paused = false;
+	}
+
+	vi getOutput() {
+		vi out;
+		loop(bufferSize) {
+			out.push_back(buffer[i]);
+		}
+		return out;
+	}
+
+	void setInput(ll val) {
+		bufset(bufferSize, val);
+		waitInput = false;
+		paused = false;
 	}
 };
 
