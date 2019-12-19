@@ -21,14 +21,17 @@ typedef pair<int, int>     ii;
 #define avg(l, r)          l + (r - l) / 2
 #define iter(a)            a.begin(), a.end()
 
+#define INPUT_BUFFER  1
+#define OUTPUT_BUFFER 2
+
 class prog {
 	vector<ll> mem;
 	map<ll, ll> extMem;
-	bool useBuffer;
-	int stopAfterOutput, memSize;
-	vi buffer, dels = {0, 4, 4, 2, 2, 3, 3, 4, 4, 2};
-	int ptr, relativeBase, bufferPos, bufferSize, step;
-	bool eop, waitInput, paused;
+	int useBuffer, stopAfterOutput, memSize;
+	queue<ll> inBuffer, outBuffer;
+	vi dels = {0, 4, 4, 2, 2, 3, 3, 4, 4, 2};
+	int ptr, relativeBase, step;
+	bool eop, waitInput, paused, outputReady;
 	int outputCnt;
 
 	ll access(ll pos) {
@@ -36,18 +39,16 @@ class prog {
 	}
 
 	public:
-	prog(char* file, bool ub = false, int sao = 0) : 
+	prog(char* file, int ub = 0, int sao = 0) : 
 	useBuffer(ub),
 	stopAfterOutput(sao), 
-	buffer(sao + 1, 0), 
 	ptr(0), 
 	relativeBase(0), 
-	bufferPos(0), 
-	bufferSize(sao),
 	step(0), 
 	eop(false),
 	waitInput(true),
 	paused(false),
+	outputReady(false),
 	outputCnt(0) {
 		ifstream fin(file);
 		ll x;
@@ -91,13 +92,14 @@ class prog {
 
 	void input(vector<ll>& args) {
 		ll x;
-		if (useBuffer) {
+		if (useBuffer & INPUT_BUFFER) {
 			if (waitInput) {
 				paused = true;
 			}
 			else {
-				x = buffer[bufferSize];
-				waitInput = true;
+				x = inBuffer.front();
+				inBuffer.pop();
+				waitInput = inBuffer.empty();
 			}
 		}
 		else cin >> x;
@@ -105,10 +107,9 @@ class prog {
 	}
 
 	void output(vector<ll>& args) {
-		if (useBuffer) {
-			buffer[bufferPos] = args[0];
-			bufferPos++;
-			if (bufferPos == bufferSize) bufferPos = 0;
+		if (useBuffer & OUTPUT_BUFFER) {
+			outBuffer.push(args[0]);
+			outputReady = true;
 		}
 		else cout << args[0] << endl;
 	}
@@ -163,14 +164,6 @@ class prog {
 		if (access(ptr) == 99) eop = true; 
 	}
 
-	void bufset(int pos, ll val) {
-		buffer[pos] = val;
-	}
-
-	ll bufget(int pos) {
-		return buffer[pos];
-	}
-
 	bool canRun() {
 		return !eop and !paused;
 	}
@@ -187,18 +180,43 @@ class prog {
 		paused = false;
 	}
 
-	vi getOutput() {
-		vi out;
-		loop(bufferSize) {
-			out.push_back(buffer[i]);
+	vector<ll> getOutput() {
+		vector<ll> out;
+		while (!outBuffer.empty()) {
+			out.push_back(outBuffer.front());
+			outBuffer.pop();
 		}
+		outputReady = false;
 		return out;
 	}
 
 	void setInput(ll val) {
-		bufset(bufferSize, val);
+		inBuffer.push(val);
 		waitInput = false;
 		paused = false;
+	}
+
+	bool hasOutput() {
+		return outputReady;
+	}
+
+	prog& operator<<(ll x) {
+		setInput(x);
+		return *this;
+	}
+
+	prog& operator>>(ll& x) {
+		x = outBuffer.front();
+		outBuffer.pop();
+		outputReady = !outBuffer.empty();
+		return *this;
+	}
+
+	prog& operator>>(char& x) {
+		x = (char)outBuffer.front();
+		outBuffer.pop();
+		outputReady = !outBuffer.empty();
+		return *this;
 	}
 };
 
@@ -209,3 +227,4 @@ void prog::call(size_t i, vector<ll>& args) {
 	if (i > fs.size()) cout << "function not found" << endl, exit(0);
 	(this->*fs[i - 1])(args);
 }
+
