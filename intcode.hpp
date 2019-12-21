@@ -24,6 +24,9 @@ typedef pair<int, int>     ii;
 #define INPUT_BUFFER  1
 #define OUTPUT_BUFFER 2
 
+#define INT_MODE   0
+#define ASCII_MODE 1
+
 class prog {
 	vector<ll> mem;
 	map<ll, ll> extMem;
@@ -31,7 +34,7 @@ class prog {
 	queue<ll> inBuffer, outBuffer;
 	vi dels = {0, 4, 4, 2, 2, 3, 3, 4, 4, 2};
 	int ptr, relativeBase, step;
-	bool eop, waitInput, paused, outputReady;
+	bool eop, waitInput, paused, outputReady, asciiMode;
 	int outputCnt;
 
 	ll access(ll pos) {
@@ -39,7 +42,7 @@ class prog {
 	}
 
 	public:
-	prog(char* file, int ub = 0, int sao = 0) : 
+	prog(char* file, int ub = 0, int sao = 0, int mode = INT_MODE) : 
 	useBuffer(ub),
 	stopAfterOutput(sao), 
 	ptr(0), 
@@ -49,6 +52,7 @@ class prog {
 	waitInput(true),
 	paused(false),
 	outputReady(false),
+	asciiMode(mode),
 	outputCnt(0) {
 		ifstream fin(file);
 		ll x;
@@ -102,7 +106,10 @@ class prog {
 				waitInput = inBuffer.empty();
 			}
 		}
-		else cin >> x;
+		else {
+			if (asciiMode) x = getchar();
+			else cin >> x;
+		}
 		set(args[0], x);
 	}
 
@@ -111,7 +118,10 @@ class prog {
 			outBuffer.push(args[0]);
 			outputReady = true;
 		}
-		else cout << args[0] << endl;
+		else {
+			if (asciiMode) cout << (char)args[0];
+			else cout << args[0] << endl;
+		}
 	}
 
 	void jumpif(vector<ll>& args) {
