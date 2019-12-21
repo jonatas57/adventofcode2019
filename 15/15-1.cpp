@@ -28,7 +28,7 @@ struct droid {
 	prog p;
 	int x, y;
 
-	droid(char* file) : p(file, true, 1), x(0), y(0) {
+	droid(char* file) : p(file, INPUT_BUFFER | OUTPUT_BUFFER, 1), x(0), y(0) {
 		mapa[x][y] = 1;
 		vis[x][y] = true;
 	}
@@ -51,9 +51,11 @@ struct droid {
 	}
 
 	int move(int dir) {
-		p.setInput(dir);
+		p << dir;
 		p.exec();
-		return p.getOutput()[0];
+		ll ans;
+		p >> ans;
+		return ans;
 	}
 };
 
